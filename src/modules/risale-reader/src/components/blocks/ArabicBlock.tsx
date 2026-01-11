@@ -9,6 +9,7 @@ interface ArabicBlockProps {
 
 export const ArabicBlock: React.FC<ArabicBlockProps> = memo(({ text, variant = 'block' }) => {
     const isHero = variant === 'hero';
+    console.log('ArabicBlock rendering with font:', ReaderTheme.typography.arabicFont);
 
     // RN doesn't fully support 'wordSpacing' on Android depending on version, 
     // but the Prompt explicitly asked for it. We apply it.
@@ -34,12 +35,14 @@ const styles = StyleSheet.create({
         width: '100%',
     },
     text: {
-        color: ReaderTheme.colors.arabic,
-        fontFamily: ReaderTheme.typography.arabicFont,
+        textAlign: 'center',
         writingDirection: 'rtl',
-        textAlign: 'center', // Prompt: "align: center"
-        // Prompt: "optimizeLegibility" is web, but in RN we rely on font.
-        // Prompt: "kerning/ligature açık" -> usually default for Arabic fonts
+        // GOLD STANDARD V20.0
+        fontFamily: 'ScheherazadeNew',
+        letterSpacing: 0,
+        // Match RisaleTextRenderer block sizing logic roughly (assuming base 18-20)
+        paddingVertical: 6,
+        marginVertical: 4,
     },
     heroText: {
         fontSize: ReaderTheme.typography.sizes.arabicHero,

@@ -14,7 +14,7 @@ export const ReaderTheme = {
         // Gold Standard Fonts
         headingFont: 'LivaNur', // Gotik/Old Style header font
         bodyFont: 'CrimsonPro', // Serif body font
-        arabicFont: 'Amiri', // Classic Naskh (400 Regular, no bold)
+        arabicFont: 'ScheherazadeNew', // New Google Font
 
         sizes: {
             heading: 25,

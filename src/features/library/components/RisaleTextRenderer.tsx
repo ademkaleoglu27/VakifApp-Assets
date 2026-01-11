@@ -2,19 +2,19 @@ import React, { memo, useCallback, useMemo } from "react";
 import { Platform, StyleSheet, Text, View } from "react-native";
 
 /**
- * RisaleTextRenderer (Golden Standard V7 - LOCKED)
+ * RisaleTextRenderer (Golden Standard V20.0 - LOCKED)
  * ─────────────────────────────────────────────────────────────
- * FINALIZED TYPOGRAPHY & LAYOUT RULES:
+ * FINALIZED TYPOGRAPHY & LAYOUT RULES (User Approved: 2026-01-11):
  * 1. Android: textAlign 'left' | iOS: 'justify'
  * 2. Paragraphs: Indented (6 spaces)
- * 3. Arabic: 
- *    - Font: KFGQPC_HAFS (Clean/Thin)
- *    - Implicit Phrase Segmentation: Runs of Arabic words are DETECTED and ISOLATED as Blocks.
- *    - <ar> tags are STRIPPED globally to prevent artifacts.
+ * 3. Arabic Font: 'Scheherazade New' (Google Font)
+ *    - Block Scale: 1.6x | LineHeight: 1.8x | MarginV: 4 | Padding: V6
+ *    - Inline Scale: 1.25x | LineHeight: 2.2x | Padding: T10 B4
+ *    - Character Fix: \u0656 -> \u0650 (Subscript Aleph -> Kasra)
  * 4. Semantics:
- *    - Sacred Names (Allah, Esma-ül Hüsna): Bold (700) + Black (#000)
- *    - Sual/Elcevap Labels: Bold (700) + Black (#000)
- * 5. Lugat: Inline Mini Card (Model A)
+ *    - Sacred Names: Bold Black (Includes Zikr terms like Elhamdülillah, Vesselam...)
+ *    - Sual/Elcevap Labels: Bold, Body Size, Black
+ *    - Question Content: Bold Italic Black
  * ─────────────────────────────────────────────────────────────
  */
 
@@ -64,8 +64,14 @@ function isArabicLine(t: string): boolean {
 }
 
 function normalizeLine(raw: string): string {
-    // Remove <ar> tags globally (V7 logic detects content by char range), keep content.
-    return raw.replace(/<\/?ar>/gi, "").replace(/\r/g, "").replace(/\t/g, " ").trim();
+    // Remove <ar> tags globally.
+    // Replace unsupported Subscript Aleph (U+0656) with Kasra (U+0650) to prevent font fallback.
+    return raw
+        .replace(/<\/?ar>/gi, "")
+        .replace(/\u0656/g, "\u0650") // FIX: Husrev font lacks U+0656 support
+        .replace(/\r/g, "")
+        .replace(/\t/g, " ")
+        .trim();
 }
 
 /**
@@ -97,12 +103,14 @@ export const RisaleTextRenderer = memo((props: Props) => {
     const bodyLineHeight = Math.round(fontSize * 1.7);
 
     // KFGQPC is thinner/smaller, so we increase size slightly
-    const arabicInlineSize = Math.round(fontSize * 1.28);
-    const arabicBlockSize = Math.max(24, Math.round(fontSize * 1.55));
-    const arabicBlockLineHeight = Math.round(arabicBlockSize * 1.8);
+    // Adjusted for Scheherazade New (Refined scale)
+    const arabicInlineSize = Math.round(fontSize * 1.25); // Reduced to 1.25
+    const arabicBlockSize = Math.max(26, Math.round(fontSize * 1.6)); // Reduced to 1.6
+    const arabicBlockLineHeight = Math.round(arabicBlockSize * 1.8); // Tighter line height (was 2.0, caused gaps)
 
-    const headingSize = Math.round(fontSize * 1.35);
+    const headingSize = Math.round(fontSize * 1.8); // INCREASED: 1.35 -> 1.8
     const headingLineHeight = Math.round(headingSize * 1.4);
+    const labelSize = fontSize; // Same size as body, strictly bold
 
     const parsed = useMemo(() => {
         if (!text) return [];
@@ -145,7 +153,7 @@ export const RisaleTextRenderer = memo((props: Props) => {
     }, []);
 
     // 1b. İhtar / Dikkat / Tenbih / Nükte (Premium V20)
-    const RE_IHTAR_LINE = /^(İhtar|Dikkat|Tenbih|Mühim|Nükte|İkaz)\s*:/i;
+    const RE_IHTAR_LINE = /^(İhtar|Dikkat|Tenbih|Mühim|Nükte|İkaz|Elhasıl)\s*:/i;
 
     const isIhtarLine = useCallback((t: string) => {
         return RE_IHTAR_LINE.test(t.trim());
@@ -166,14 +174,17 @@ export const RisaleTextRenderer = memo((props: Props) => {
         "Bismillah", "Bi's-mi'llah", "Bismillahi",
         "Resul", "Nebi", "Peygamber", "Habib", "Sünnet", "Hadis", "Vahiy",
         "Kur'an", "Kur'ân", "Furkan", "Kelamullah",
-        "Bediüzzaman", "Said Nursi", "Risale-i Nur", "Risale-i Nur'u"
+        "Bediüzzaman", "Said Nursi", "Risale-i Nur", "Risale-i Nur'u",
+        "Vesselam", "Elhamdülillah", "Sübhanallah", "Maşallah", "İnşallah",
+        "Barekallah", "Ve aleykümselam", "Aleykümselam"
     ];
 
     const TERMS_PATTERN = SACRED_TERMS.join("|").replace(/\./g, "\\.");
 
-    const RE_SACRED = new RegExp(`\\b(${TERMS_PATTERN})(?:(?:'|’)[a-zA-Z0-9ğüşıöçĞÜŞİÖÇ]+)?\\b`, 'gi');
+    // FIX: Capture the whole term + suffix in Group 1 to preserve it during split
+    const RE_SACRED = new RegExp(`\\b((?:${TERMS_PATTERN})(?:(?:'|’)[a-zA-Z0-9ğüşıöçĞÜŞİÖÇ]+)?)\\b`, 'gi');
 
-    const RE_SACRED_CHECK = new RegExp(`^(${TERMS_PATTERN})(?:(?:'|’)[a-zA-Z0-9ğüşıöçĞÜŞİÖÇ]+)?$`, 'i');
+    const RE_SACRED_CHECK = new RegExp(`^((?:${TERMS_PATTERN})(?:(?:'|’)[a-zA-Z0-9ğüşıöçĞÜŞİÖÇ]+)?)$`, 'i');
 
     // 3. Definition (Word: Definition...)
     const RE_DEFINITION = /^([^:]{2,30}):\s+(.+)/;
@@ -281,76 +292,161 @@ export const RisaleTextRenderer = memo((props: Props) => {
         });
     }, [color, onWordPress, handlePress]);
 
+    // ─────────────────────────────────────────────────────────────
+    // SEGMENTED RENDERER (Flow Control)
+    // ─────────────────────────────────────────────────────────────
+
+    type RenderSegment = {
+        type: 'inline' | 'block';
+        node: React.ReactNode;
+        key: string;
+    };
+
     /**
-     * Renders a Mixed paragraph (Turkish + Inline Arabic + Mini Blocks).
-     * Now supports Semantic Emphasis (Sacred Names) inside Turkish parts.
+     * Parses the paragraph into Inline and Block segments.
+     * Returns an array of segments that can be rendered in a View with wrapping.
      */
-    const renderInlineWithArabic = useCallback((paragraph: string, extraStyles?: any) => {
-        // We split by Arabic runs
-        const parts = paragraph.split(RE_ARABIC_RUN);
-        const children: React.ReactNode[] = [];
+    const getParagraphSegments = useCallback((paragraph: string, baseKey: string): RenderSegment[] => {
+        // Split by Arabic phrases (Capturing group includes the Arabic phrase)
+        const parts = paragraph.split(RE_ARABIC_PHRASE);
+        const segments: RenderSegment[] = [];
 
         parts.forEach((part, idx) => {
             if (!part) return;
 
-            // Check if Arabic
+            const key = `${baseKey}-${idx}`;
+
+            // Check if Arabic (Test the whole part)
             if (RE_ARABIC.test(part)) {
                 // Determine if Block vs Inline
+                // Remove <ar> tags if present (though phrase regex usually captures plain content)
                 const content = part.replace(RE_AR_TAG, "$1");
                 const isBlock = shouldArabicBeBlock(content);
 
                 if (isBlock) {
-                    // Mini Block (Inline but forced newlines/size)
-                    children.push(
-                        <Text key={`ar-${idx}`} style={{
-                            fontSize: arabicBlockSize,
-                            color: arabicColor,
-                            fontFamily: "KFGQPC_HAFS",
-                            writingDirection: "rtl",
-                        }}>
-                            {`\n${content}\n`}
-                        </Text>
-                    );
+                    // BLOCK: Needs to break flow
+                    segments.push({
+                        type: 'block',
+                        key,
+                        node: (
+                            <Text key={key} style={[styles.arabicBlock, {
+                                fontSize: arabicBlockSize,
+                                lineHeight: arabicBlockLineHeight,
+                                color: arabicColor,
+                                width: '100%',
+                            }]}>
+                                {content}
+                            </Text>
+                        )
+                    });
                 } else {
-                    // True inline
-                    children.push(
-                        <Text key={`ar-${idx}`} style={[styles.arabicInline, {
-                            fontSize: arabicInlineSize,
-                            color: arabicColor,
-                        }]}>
-                            {content}
-                        </Text>
-                    );
+                    // INLINE
+                    segments.push({
+                        type: 'inline',
+                        key,
+                        node: (
+                            <Text key={key} style={[styles.arabicInline, {
+                                fontSize: arabicInlineSize,
+                                lineHeight: arabicInlineSize * 2.2,
+                                color: arabicColor,
+                            }]}>
+                                {content}
+                            </Text>
+                        )
+                    });
                 }
             } else {
-                // Turkish Text -> Processing Chain: 
-                // 1. Semantic (Sacred Names)
-                // 2. Interactive (Lugat) -> handled in renderSacredText
-                children.push(renderSacredText(part, `seg-${idx}`));
+                // Turkish Text
+                const nodes = renderSacredText(part, key) as any[]; // Type cast for array handling
+                if (nodes) {
+                    // Flatten the nested arrays from renderSacredText (EyParts -> Parts)
+                    // We use a simple reduce or flat logic since flat() might strictly depend on environment
+                    const flattened: React.ReactNode[] = [];
+
+                    const flattenDeep = (arr: any[]) => {
+                        arr.forEach(item => {
+                            if (Array.isArray(item)) {
+                                flattenDeep(item);
+                            } else if (item) {
+                                flattened.push(item);
+                            }
+                        });
+                    };
+
+                    if (Array.isArray(nodes)) {
+                        flattenDeep(nodes);
+                        flattened.forEach((n, ni) => {
+                            // n is already a ReactElement with a key from renderSacredText
+                            // But simply pushing it leaves the original key, which might collide if logic is flawed.
+                            // We FORCE a new unique key based on the flattened index to be 100% safe.
+                            const safeNode = React.isValidElement(n)
+                                ? React.cloneElement(n, { key: `${key}-safe-${ni}` })
+                                : n;
+                            segments.push({ type: 'inline', key: `${key}-flat-${ni}`, node: safeNode });
+                        });
+                    }
+                }
             }
         });
-        return children;
+        return segments;
     }, [fontSize, arabicColor, arabicBlockSize, arabicInlineSize, renderSacredText]);
+
+    /**
+     * Renders a list of segments into a Flow (View containing Text chunks and Block chunks).
+     */
+    const renderFlow = useCallback((segments: RenderSegment[], wrapperStyle: any, prefix?: React.ReactNode) => {
+        const views: React.ReactNode[] = [];
+        let inlineBuffer: React.ReactNode[] = [];
+
+        if (prefix) {
+            inlineBuffer.push(prefix);
+        }
+
+        const flush = (idx: number) => {
+            if (inlineBuffer.length > 0) {
+                views.push(
+                    <Text
+                        key={`flow-txt-${idx}`}
+                        style={wrapperStyle}
+                        {...(isAndroid ? { includeFontPadding: false, textBreakStrategy: "simple", hyphenationFrequency: "none" } : {})}
+                    >
+                        {inlineBuffer}
+                    </Text>
+                );
+                inlineBuffer = [];
+            }
+        };
+
+        segments.forEach((seg, i) => {
+            if (seg.type === 'block') {
+                flush(i);
+                // Render block directly in the View (breaking the Text flow)
+                views.push(seg.node);
+            } else {
+                inlineBuffer.push(seg.node);
+            }
+        });
+
+        flush(segments.length);
+
+        return (
+            <View style={{ width: '100%' }}>
+                {views}
+            </View>
+        );
+    }, [isAndroid]);
 
 
     return (
         <View style={styles.container}>
             {parsed.map((p, pIndex) => {
-                const flat = p.trim(); // single line usually
+                const flat = p.trim();
                 if (!flat) return null;
 
-                // PREMIUM V20: If this chunk follows standalone "Sual:", apply question styling
-                if (isAfterSual && flat.includes('?')) {
-                    return (
-                        <Text
-                            key={`sq-${pIndex}`}
-                            style={[styles.body, styles.semanticContent, { fontSize, lineHeight: bodyLineHeight, textAlign: alignBody }]}
-                            {...(isAndroid ? { includeFontPadding: false, textBreakStrategy: "simple", hyphenationFrequency: "none" } : {})}
-                        >
-                            {renderInlineWithArabic(flat)}
-                        </Text>
-                    );
-                }
+                // ────────────────────────────────────────────────────────
+                // SHARED STYLE PROPS
+                // ────────────────────────────────────────────────────────
+                const bodyStyle = [styles.body, { fontSize, lineHeight: bodyLineHeight, textAlign: alignBody, color }];
 
                 // 1. Divider
                 if (flat === "***" || flat === "* * *") {
@@ -361,7 +457,7 @@ export const RisaleTextRenderer = memo((props: Props) => {
                     );
                 }
 
-                // 2. Full Arabic Block (Priority 1)
+                // 2. Full Arabic Block
                 if (isArabicLine(flat)) {
                     return (
                         <Text key={`ab-${pIndex}`} style={[styles.arabicBlock, {
@@ -374,85 +470,48 @@ export const RisaleTextRenderer = memo((props: Props) => {
                     );
                 }
 
-                // 3. Sual / Elcevap Block (Premium V20: Italic Content)
-                if (isSualLine(flat)) {
+                // 3. Sual / İhtar Lines (Refactored for Block Support)
+                if (isSualLine(flat) || isIhtarLine(flat)) {
                     const colonIdx = flat.indexOf(':');
-                    const label = flat.substring(0, colonIdx + 1);
-                    const rest = flat.substring(colonIdx + 1).trim();
+                    const labelTxt = flat.substring(0, colonIdx + 1);
+                    const restTxt = flat.substring(colonIdx + 1).trim();
+                    const isSual = isSualLine(flat);
 
-                    // STANDALONE SUAL: Look ahead for next paragraph and style as question
-                    if (!rest && pIndex < parsed.length - 1) {
-                        // Find next non-empty paragraph
-                        let nextContent = '';
-                        for (let ni = pIndex + 1; ni < parsed.length; ni++) {
-                            const nextP = parsed[ni].trim();
-                            if (nextP && !isSualLine(nextP) && !isIhtarLine(nextP) && !isHeadingLine(nextP)) {
-                                // Check if this is the question content (ends with ?)
-                                if (nextP.includes('?')) {
-                                    nextContent = nextP;
-                                }
-                                break;
-                            }
-                        }
-                        // Just render label alone for now, content will be styled when we reach it
-                        return (
-                            <Text
-                                key={`se-${pIndex}`}
-                                style={[styles.body, { fontSize, lineHeight: bodyLineHeight, textAlign: alignBody }]}
-                                {...(isAndroid ? { includeFontPadding: false, textBreakStrategy: "simple", hyphenationFrequency: "none" } : {})}
-                            >
-                                <Text style={styles.semanticLabel}>{label}</Text>
-                            </Text>
-                        );
-                    }
+                    const labelNode = (
+                        <Text key={`lbl-${pIndex}`} style={[styles.semanticLabel, { fontSize: labelSize }]}>
+                            {labelTxt}{' '}
+                        </Text>
+                    );
+
+                    // Parse the rest content
+                    const segments = getParagraphSegments(restTxt, `p-${pIndex}`);
+
+                    // Content Style
+                    const contentStyle = [
+                        bodyStyle,
+                        styles.semanticContent // Apply Italic/Bold to the wrapper
+                    ];
 
                     return (
-                        <Text
-                            key={`se-${pIndex}`}
-                            style={[styles.body, { fontSize, lineHeight: bodyLineHeight, textAlign: alignBody, color }]}
-                            {...(isAndroid ? { includeFontPadding: false, textBreakStrategy: "simple", hyphenationFrequency: "none" } : {})}
-                        >
-                            <Text style={styles.semanticLabel}>{label} </Text>
-                            <Text style={styles.semanticContent}>{renderInlineWithArabic(rest)}</Text>
-                        </Text>
+                        <View key={`sem-${pIndex}`} style={{ marginBottom: 12 }}>
+                            {renderFlow(segments, contentStyle, labelNode)}
+                        </View>
                     );
                 }
 
-                // 3a. Question Content (follows standalone Sual:)
-                // Check if previous paragraph was standalone "Sual:"
+                // 4. Question Content (after standalone Sual)
                 const prevP = pIndex > 0 ? parsed[pIndex - 1].trim() : '';
-                if (isStandaloneSualChunk(prevP) && flat.includes('?')) {
-                    // This is the question content - style it elegantly until ?
+                if (isAfterSual && flat.includes('?')) {
+                    const segments = getParagraphSegments(flat, `pq-${pIndex}`);
+                    const qStyle = [bodyStyle, styles.semanticContent];
                     return (
-                        <Text
-                            key={`sq-${pIndex}`}
-                            style={[styles.body, styles.semanticContent, { fontSize, lineHeight: bodyLineHeight, textAlign: alignBody }]}
-                            {...(isAndroid ? { includeFontPadding: false, textBreakStrategy: "simple", hyphenationFrequency: "none" } : {})}
-                        >
-                            {renderInlineWithArabic(flat)}
-                        </Text>
+                        <View key={`sq-${pIndex}`} style={{ marginBottom: 12 }}>
+                            {renderFlow(segments, qStyle)}
+                        </View>
                     );
                 }
 
-                // 3b. İhtar / Dikkat Block (Premium V20: Italic Content)
-                if (isIhtarLine(flat)) {
-                    const colonIdx = flat.indexOf(':');
-                    const label = flat.substring(0, colonIdx + 1);
-                    const rest = flat.substring(colonIdx + 1).trim();
-
-                    return (
-                        <Text
-                            key={`ih-${pIndex}`}
-                            style={[styles.body, { fontSize, lineHeight: bodyLineHeight, textAlign: alignBody, color }]}
-                            {...(isAndroid ? { includeFontPadding: false, textBreakStrategy: "simple", hyphenationFrequency: "none" } : {})}
-                        >
-                            <Text style={styles.semanticLabel}>{label} </Text>
-                            <Text style={styles.semanticContent}>{renderInlineWithArabic(rest)}</Text>
-                        </Text>
-                    );
-                }
-
-                // 4. Headings
+                // 5. Headings
                 if (isHeadingLine(flat)) {
                     return (
                         <Text key={`hd-${pIndex}`} style={[styles.heading, {
@@ -465,125 +524,32 @@ export const RisaleTextRenderer = memo((props: Props) => {
                     );
                 }
 
-                // 5. Definition Style
+                // 6. Definition
                 const defMatch = flat.match(RE_DEFINITION);
-                // Ensure it's not a long sentence (limit label length filter handled by regex {2,30})
                 if (defMatch) {
                     const label = defMatch[1] + ":";
                     const rest = defMatch[2];
-
+                    const labelNode = <Text key={`df-lbl-${pIndex}`} style={{ fontWeight: '700', color: '#000' }}>{label} </Text>;
+                    const segments = getParagraphSegments(rest, `df-${pIndex}`);
                     return (
-                        <Text
-                            key={`df-${pIndex}`}
-                            style={[styles.body, { fontSize, lineHeight: bodyLineHeight, textAlign: alignBody, color }]}
-                            {...(isAndroid ? { includeFontPadding: false, textBreakStrategy: "simple", hyphenationFrequency: "none" } : {})}
-                        >
-                            <Text style={{ fontWeight: '700', color: '#000' }}>{label} </Text>
-                            {renderInlineWithArabic(rest)}
-                        </Text>
+                        <View key={`def-${pIndex}`} style={{ marginBottom: 12 }}>
+                            {renderFlow(segments, bodyStyle, labelNode)}
+                        </View>
                     );
                 }
 
-                // 6. Standard Paragraph (Turkish + Inline or Mixed with Blocks)
-                // New Logic: Implicit Phrase Segmentation using Hoisted Regex
-                // Split by Runs of Arabic Words (grouping words separated by space/punct).
-                // This treats "Word Word" as a single Arabic Token.
-
-                // Helper to render a segment list
-                const renderParagraphSegments = () => {
-                    // Split by Implicit Phrase
-                    const segments = flat.split(RE_ARABIC_PHRASE);
-                    const renderedNodes: React.ReactNode[] = [];
-
-                    // Buffer for inline segments
-                    let inlineBuffer: React.ReactNode[] = [];
-                    let isFirstSegment = true;
-
-                    // Function to flush inline buffer
-                    const flushBuffer = (keyIdx: number) => {
-                        if (inlineBuffer.length === 0) return;
-
-                        const prefix = (isFirstSegment) ? INDENT : null;
-                        isFirstSegment = false;
-
-                        renderedNodes.push(
-                            <Text
-                                key={`p-seg-${pIndex}-${keyIdx}`}
-                                style={[
-                                    styles.body,
-                                    {
-                                        color,
-                                        fontSize,
-                                        lineHeight: bodyLineHeight,
-                                        textAlign: alignBody,
-                                    },
-                                ]}
-                                {...(isAndroid ? { includeFontPadding: false, textBreakStrategy: "simple", hyphenationFrequency: "none" } : {})}
-                            >
-                                {prefix}
-                                {inlineBuffer}
-                            </Text>
-                        );
-                        inlineBuffer = [];
-                    };
-
-                    segments.forEach((seg, sIdx) => {
-                        if (!seg) return;
-
-                        // Check if this segment is an Arabic Phrase
-                        // We can check if it starts with Arabic char
-                        if (RE_ARABIC.test(seg)) {
-                            // It's Arabic Content (Phrase)
-                            if (shouldArabicBeBlock(seg)) {
-                                // BLOCK
-                                flushBuffer(sIdx - 1);
-
-                                // Render Block
-                                renderedNodes.push(
-                                    <Text key={`ab-seg-${pIndex}-${sIdx}`} style={[styles.arabicBlock, {
-                                        fontSize: arabicBlockSize,
-                                        lineHeight: arabicBlockLineHeight,
-                                        color: arabicColor,
-                                        width: '100%',
-                                    }]}>
-                                        {seg}
-                                    </Text>
-                                );
-                                isFirstSegment = false;
-                            } else {
-                                // INLINE Arabic (Short, Single word)
-                                inlineBuffer.push(
-                                    <Text key={`ar-in-${pIndex}-${sIdx}`} style={[styles.arabicInline, {
-                                        fontSize: arabicInlineSize,
-                                        color: arabicColor,
-                                    }]}>
-                                        {seg}
-                                    </Text>
-                                );
-                            }
-                        } else {
-                            // Turkish Text
-                            // Process for Semantic Emphasis & Interactive Lugat
-                            const nodes = renderSacredText(seg, `p-tr-${pIndex}-${sIdx}`);
-                            if (Array.isArray(nodes)) {
-                                nodes.forEach(n => inlineBuffer.push(n));
-                            } else if (nodes) {
-                                inlineBuffer.push(nodes);
-                            }
-                        }
-                    });
-
-                    // Flush remaining
-                    flushBuffer(segments.length);
-
-                    return renderedNodes;
-                };
+                // 7. Standard Paragraph
+                // Handle implicit phrase segmentation
+                const segments = getParagraphSegments(flat, `p-${pIndex}`);
+                // Add INDENT to first inline segment
+                const indentNode = <Text key={`indent-${pIndex}`}>{INDENT}</Text>;
 
                 return (
-                    <React.Fragment key={`frag-${pIndex}`}>
-                        {renderParagraphSegments()}
-                    </React.Fragment>
+                    <View key={`para-${pIndex}`} style={{ marginBottom: 12 }}>
+                        {renderFlow(segments, bodyStyle, indentNode)}
+                    </View>
                 );
+
             })}
         </View>
     );
@@ -608,11 +574,12 @@ const styles = StyleSheet.create({
 
     heading: {
         textAlign: "center",
-        marginTop: 18,
-        marginBottom: 12,
+        marginTop: 24, // Increased spacing
+        marginBottom: 16,
         fontFamily: "LivaNur",
-        fontWeight: "600",
+        fontWeight: "700", // Bolder
         letterSpacing: 0.5,
+        color: "#000",
     },
 
     arabicParaWrap: {
@@ -621,18 +588,36 @@ const styles = StyleSheet.create({
 
     arabicBlock: {
         textAlign: "center",
-        fontFamily: "KFGQPC_HAFS", // Specific Uthmanic font
+        // fontFamily: "KFGQPC_HAFS", // OLD
+        fontFamily: "ScheherazadeNew", // NEW: Scheherazade New
+        // fontWeight: "400", // Scheherazade usually supports 700 too if needed
         writingDirection: "rtl",
-        includeFontPadding: false,
+        // FIX: Enable font padding on Android to prevent clipping
+        includeFontPadding: Platform.OS === 'android',
         letterSpacing: 0, // NEVER negative
-        marginVertical: 10,
+        marginVertical: 4, // Reduced from 10 to tighten spacing between stacked blocks
+        // FIX: Add padding to block to ensure no clipping, but reduced from 12
+        paddingTop: 6,
+        paddingBottom: 6,
     },
 
     arabicInline: {
-        fontFamily: "KFGQPC_HAFS", // Specific Uthmanic font
+        // fontFamily: "KFGQPC_HAFS", // OLD
+        fontFamily: "ScheherazadeNew", // NEW: Scheherazade New
+        // fontWeight: "400",
         writingDirection: "rtl",
-        includeFontPadding: false,
+        // FIX: Enable font padding on Android to prevent clipping of high diacritics (hareke)
+        includeFontPadding: Platform.OS === 'android',
         letterSpacing: 0, // NEVER negative
+        // FIX: Explicit line height to accommodate tall glyphs
+        // lineHeight: 50, // Arbitrary large value will be ignored if nested, but useful if separate. 
+        // Better strategy: We can't easily validly set lineHeight on nested text in all RN versions.
+        // Instead, we rely on padding or reduced size if clipping occurs.
+        // Let's try removing includeFontPadding: false constraint first.
+        // lineHeight: 60, // Arbitrary large value
+        paddingTop: 10, // Increased buffer
+        paddingBottom: 4, // Added bottom buffer
+        textAlignVertical: 'center', // Help centering
     },
 
     dividerWrap: {
@@ -651,13 +636,16 @@ const styles = StyleSheet.create({
 
     // Premium V20: Semantic Styling
     semanticLabel: {
-        fontWeight: '800',  // Extra Bold for visibility
-        color: '#000',      // Black for maximum contrast
+        fontWeight: 'bold', // Strong emphasis
+        color: '#000',      // Black
+        marginLeft: 0,
+        // fontSize handled dynamically (1.2x)
     },
     semanticContent: {
-        fontWeight: '600',  // Semi-bold
+        fontWeight: '700',  // Bold Italic
         fontStyle: 'italic',
-        color: '#333',
+        color: '#000',      // Pure Black for high contrast
+        letterSpacing: 0.1, // Slight breathing room
     },
     eyAddress: {
         fontWeight: '700',

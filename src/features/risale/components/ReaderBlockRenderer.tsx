@@ -40,7 +40,7 @@ const FONTS = {
     body: 'Tinos',
     bodyBold: 'TinosBold',
     bodyItalic: 'TinosItalic',
-    arabic: 'Amiri',
+    arabic: 'HusrevHattiArabic',
 };
 
 function computeTextStyle(baseFontSize: number, preset: PresetStyle, fontFamily: string, type: BlockType): TextStyle {
@@ -73,7 +73,16 @@ function computeTextStyle(baseFontSize: number, preset: PresetStyle, fontFamily:
     if (type === 'arabic_block') {
         s.textAlign = 'center';
         s.writingDirection = 'rtl';
-        s.color = '#B3261E'; // Mandatory Red
+        // GOLD STANDARD V20.0 MATCH
+        s.fontFamily = 'ScheherazadeNew';
+        s.fontSize = Math.round(fontSize * 1.6);
+        s.lineHeight = Math.round(fontSize * 1.6 * 1.8);
+        s.paddingTop = 6;
+        s.paddingBottom = 6;
+        s.marginVertical = 4;
+
+        // Remove Debug Color
+        // s.color = 'green'; 
     }
 
     // Golden Standard: Note opacity

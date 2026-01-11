@@ -4,7 +4,7 @@ import { getDb } from './contentDb';
 // LOAD & STABILIZE MODE
 // Set to true to only show Sözler (first 5 sections)
 // ════════════════════════════════════════════════════════════════
-const LOAD_STABILIZE_MODE = true;
+const LOAD_STABILIZE_MODE = false;
 const ALLOWED_WORK_IDS = ['sozler']; // Only Sözler
 const MAX_SECTIONS = 5; // Birinci-Beşinci Söz
 

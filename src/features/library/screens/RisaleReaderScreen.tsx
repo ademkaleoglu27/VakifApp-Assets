@@ -64,6 +64,7 @@ export const RisaleReaderScreen = () => {
                 map.push({ index: idx, title: clean });
             }
         });
+        console.log("DEBUG headerMap size:", map.length, "First 3:", map.slice(0, 3));
         return map;
     }, [chunks, sectionTitle]);
 
@@ -89,27 +90,47 @@ export const RisaleReaderScreen = () => {
     const isRestoringRef = useRef(false);
     const restoreRequestedRef = useRef(false);
 
+    // ─────────────────────────────────────────────────────────────
+    // STABLE DATA REFS (To prevent onViewableItemsChanged recreation)
+    // ─────────────────────────────────────────────────────────────
+    const chunksRef = useRef(chunks);
+    const headerMapRef = useRef(headerMap);
+
+    // Update refs whenever data changes
+    useEffect(() => {
+        chunksRef.current = chunks;
+    }, [chunks]);
+
+    useEffect(() => {
+        headerMapRef.current = headerMap;
+    }, [headerMap]);
+
     // Track visible items to use as anchor and Update Header
+    // STABLE CALLBACK (No dependencies)
     const onViewableItemsChanged = useCallback(({ viewableItems }: { viewableItems: ViewToken[] }) => {
         if (viewableItems.length > 0) {
             const first = viewableItems[0];
+            const currentIndex = first.index;
+
+            if (currentIndex === null) return;
 
             // 1. Anchor Management
-            if (!isRestoringRef.current && first.index !== null) {
-                anchorIndexRef.current = first.index;
+            if (!isRestoringRef.current) {
+                anchorIndexRef.current = currentIndex;
             }
 
             // 2. Dynamic Header & Page Update
-            if (first.index !== null && chunks) {
-                const currentIndex = first.index;
+            const currentChunks = chunksRef.current;
+            const currentHeaderMap = headerMapRef.current;
 
-                // Find active header: Last header with index <= currentIndex
-                // Since headerMap is sorted by index, we can search backwards or find last.
-                // Given typical size (< 50 headers), findLast is fast enough or loop.
-                let activeTitle = sectionTitle;
-                for (let i = headerMap.length - 1; i >= 0; i--) {
-                    if (headerMap[i].index <= currentIndex) {
-                        activeTitle = headerMap[i].title;
+            if (currentChunks && currentHeaderMap) {
+                // Find active header
+                let activeTitle = sectionTitle; // Default: capture from closure (sectionTitle usually stable or we can ref it too)
+
+                // Optimization: Loop backwards
+                for (let i = currentHeaderMap.length - 1; i >= 0; i--) {
+                    if (currentHeaderMap[i].index <= currentIndex) {
+                        activeTitle = currentHeaderMap[i].title;
                         break;
                     }
                 }
@@ -117,19 +138,18 @@ export const RisaleReaderScreen = () => {
                 // Only update if changed to prevent render thrashing
                 setSubTitle(prev => prev !== activeTitle ? activeTitle : prev);
 
-                // Page Number - Search backwards for the last valid page number if current chunk lacks it
-                let pNo = chunks[currentIndex]?.page_no;
+                // Page Number
+                let pNo = currentChunks[currentIndex]?.page_no;
+                // Fallback search backwards
                 if (!pNo) {
                     for (let i = currentIndex; i >= 0; i--) {
-                        if (chunks[i]?.page_no) {
-                            pNo = chunks[i].page_no;
+                        if (currentChunks[i]?.page_no) {
+                            pNo = currentChunks[i].page_no;
                             break;
                         }
                     }
                 }
-
-                // FALLBACK ESTIMATION (If DB has no page data)
-                // Approx 7 paragraphs per page for standard Risale
+                // FALLBACK ESTIMATION
                 if (!pNo) {
                     pNo = Math.floor(currentIndex / 7) + 1;
                 }
@@ -139,7 +159,7 @@ export const RisaleReaderScreen = () => {
                 }
             }
         }
-    }, [chunks, headerMap, sectionTitle]);
+    }, [sectionTitle]); // sectionTitle is the only dep, stable enough. Refs handle the rest.
 
 
 
@@ -351,6 +371,11 @@ export const RisaleReaderScreen = () => {
         );
     }, [fontSize, handleWordClick, chunks, isStandaloneSualChunk]);
 
+    // Stable Viewability Config - MOVED UP to avoid conditional hook call error
+    const viewabilityConfig = useRef({
+        itemVisiblePercentThreshold: 10
+    }).current;
+
     if (!chunks) {
         return (
             <View style={styles.center}>
@@ -376,7 +401,6 @@ export const RisaleReaderScreen = () => {
                     <Text style={styles.headerBreadcrumb} numberOfLines={1}>
                         {workTitle} - <Text style={{ fontWeight: '700' }}>{subTitle || sectionTitle}</Text>
                     </Text>
-                    {/* Separation Line for aesthetics if needed, or just clean Logic */}
                 </View>
 
                 {/* Page Counter */}
@@ -392,7 +416,6 @@ export const RisaleReaderScreen = () => {
                 </TouchableOpacity>
             </View>
             <View style={styles.headerSeparator} />
-
             <GestureDetector gesture={pinchGesture}>
                 <View style={{ flex: 1, overflow: 'hidden' }}>
                     <Animated.View style={[{ flex: 1 }, animatedStyle]}>
@@ -402,7 +425,7 @@ export const RisaleReaderScreen = () => {
                             renderItem={renderItem}
                             keyExtractor={(item) => item.id.toString()}
                             onViewableItemsChanged={onViewableItemsChanged}
-                            viewabilityConfig={{ itemVisiblePercentThreshold: 10 }}
+                            viewabilityConfig={viewabilityConfig}
                             onContentSizeChange={onContentSizeChange}
 
                             estimatedItemSize={350} // Optimized for paragraph height (avg 350px)
@@ -487,23 +510,24 @@ const styles = StyleSheet.create({
     chunkContainer: {
         marginBottom: 8,
     },
-    // NEW HEADER STYLES
+    // NEW HEADER STYLES (LOCKED - Gold Standard V20.2)
+    // Clean, seamless header with no distracting backgrounds
     headerBreadcrumb: {
         fontSize: 14,
         color: '#3E2723', // Darker brown
         fontFamily: 'serif',
     },
     pageBadge: {
-        backgroundColor: '#D7CCC8', // Gold/Tan shade
-        paddingHorizontal: 10,
-        paddingVertical: 5,
-        borderRadius: 6,
+        // backgroundColor: '#D7CCC8', // REMOVED background for seamless look
+        paddingHorizontal: 0, // Removed padding
+        paddingVertical: 0,
         marginHorizontal: 8,
     },
     pageText: {
-        fontSize: 13,
-        fontWeight: '700',
-        color: '#3E2723',
+        fontSize: 14, // Increased to match header text
+        fontWeight: '700', // Bold for visibility
+        color: '#3E2723', // Matched color
+        fontFamily: 'serif', // Ensure consistent font
     },
     headerSeparator: {
         height: 1,

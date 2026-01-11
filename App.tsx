@@ -21,6 +21,7 @@ import { Amiri_400Regular, Amiri_700Bold } from '@expo-google-fonts/amiri';
 import { PirataOne_400Regular } from '@expo-google-fonts/pirata-one';
 import { GermaniaOne_400Regular } from '@expo-google-fonts/germania-one';
 import { Tinos_400Regular, Tinos_700Bold, Tinos_400Regular_Italic } from '@expo-google-fonts/tinos';
+import { ScheherazadeNew_400Regular, ScheherazadeNew_700Bold } from '@expo-google-fonts/scheherazade-new';
 
 // React Query Client oluştur
 const queryClient = new QueryClient({
@@ -44,6 +45,7 @@ export default function App() {
     SouvenirDemi: require('./assets/fonts/SouvenirDemi.ttf'),
     AriaScript: require('./assets/fonts/AriaScript.ttf'),
     KFGQPC_HAFS: require('./assets/fonts/KFGQPC_HAFS.ttf'), // Clean Uthmanic font
+    HusrevHattiArabic: require('./assets/fonts/HusrevHattiArabic.ttf'), // Husrev Hatti Arabic font
 
     // New Google Fonts
     CrimsonPro: CrimsonPro_400Regular,
@@ -56,6 +58,8 @@ export default function App() {
     Tinos: Tinos_400Regular,
     TinosBold: Tinos_700Bold,
     TinosItalic: Tinos_400Regular_Italic,
+    ScheherazadeNew: ScheherazadeNew_400Regular,
+    ScheherazadeNewBold: ScheherazadeNew_700Bold,
   });
 
   useEffect(() => {
